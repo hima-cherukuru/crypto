@@ -6,7 +6,7 @@ import java.security.NoSuchAlgorithmException;
 public class Solution {
     public static void main(String[] args) throws NoSuchAlgorithmException {
         KeyPair pk_scrooge = KeyPairGenerator.getInstance("RSA").generateKeyPair();
-        KeyPair pk_alice = KeyPairGenerator.getInstance("RS").generateKeyPair();
+        KeyPair pk_alice = KeyPairGenerator.getInstance("RSA").generateKeyPair();
 
         Transaction rootTransaction = new Transaction();
         rootTransaction.addOutput(10, pk_scrooge.getPublic());

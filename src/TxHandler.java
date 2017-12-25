@@ -1,12 +1,16 @@
-public class TxHandler {
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
+public class TxHandler {
+    private UTXOPool utxoPool;
     /**
      * Creates a public ledger whose current UTXOPool (collection of unspent transaction outputs) is
      * {@code utxoPool}. This should make a copy of utxoPool by using the UTXOPool(UTXOPool uPool)
      * constructor.
      */
     public TxHandler(UTXOPool utxoPool) {
-        // IMPLEMENT THIS
+        this.utxoPool = utxoPool;
     }
 
     /**
@@ -19,7 +23,39 @@ public class TxHandler {
      *     values; and false otherwise.
      */
     public boolean isValidTx(Transaction tx) {
-        // IMPLEMENT THIS
+        UTXOPool uniqueUTXOs = new UTXOPool();
+        List<Transaction.Input> inputList = tx.getInputs();
+        List<Transaction.Output> outputList = tx.getOutputs();
+        double previousTxOutSum = 0;
+        UTXO utxo;
+        for(int i = 0;i<tx.numInputs();i++) {
+            utxo = new UTXO(tx.getInput(i).prevTxHash, tx.getInput(i).outputIndex);
+            if(!utxoPool.contains(utxo)) {
+                return false;
+            }
+            Transaction.Output output = utxoPool.getTxOutput(utxo);
+            if(!Crypto.verifySignature(output.address, tx.getRawDataToSign(i), tx.getInput(i).signature)) {
+                return false;
+            }
+            if(uniqueUTXOs.contains(utxo)) {
+                return false;
+            }
+            uniqueUTXOs.addUTXO(utxo, output);
+            previousTxOutSum += output.value;
+        }
+        double currentTxOutSum = 0;
+        for(Transaction.Output out: tx.getOutputs()) {
+            if(out.value < 0) {
+                return false;
+            }
+            currentTxOutSum += out.value;
+        }
+
+        if(currentTxOutSum > previousTxOutSum) {
+            return false;
+        }
+
+        return true;
     }
 
     /**
@@ -28,7 +64,24 @@ public class TxHandler {
      * updating the current UTXO pool as appropriate.
      */
     public Transaction[] handleTxs(Transaction[] possibleTxs) {
-        // IMPLEMENT THIS
-    }
+        Set<Transaction> validTxs = new HashSet<>();
 
+        for(int i=0;i<possibleTxs.length;i++) {
+            if(isValidTx(possibleTxs[i])) {
+                validTxs.add(possibleTxs[i]);
+                for(Transaction.Input input: possibleTxs[i].getInputs()) {
+                    UTXO utxo = new UTXO(input.prevTxHash, input.outputIndex);
+                    utxoPool.removeUTXO(utxo);
+                }
+
+                for(int k=0;k<possibleTxs[i].numOutputs();k++) {
+                    UTXO utxo = new UTXO(possibleTxs[i].getHash(), k);
+                    utxoPool.addUTXO(utxo, possibleTxs[i].getOutput(k));
+                }
+            }
+        }
+
+        Transaction[] validTxArray = new Transaction[validTxs.size()];
+        return validTxs.toArray(validTxArray);
+    }
 }
